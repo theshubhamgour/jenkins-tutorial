@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: django-cicd-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/code
+    command: gunicorn app.wsgi:application --bind 0.0.0.0:8000
