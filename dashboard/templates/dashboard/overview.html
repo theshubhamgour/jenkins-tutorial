@@ -1,0 +1,252 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Dashboard Overview - Jenkins Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h2 mb-3">
+            <i class="fas fa-tachometer-alt me-2"></i>Dashboard Overview
+        </h1>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ stats.total_jobs }}</h4>
+                        <p class="card-text">Total Jobs</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-briefcase fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ stats.running_builds }}</h4>
+                        <p class="card-text">Running Builds</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-spinner fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ stats.failed_builds_today }}</h4>
+                        <p class="card-text">Failed Today</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-times-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ stats.success_rate }}%</h4>
+                        <p class="card-text">Success Rate</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Build Jobs -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>Build Jobs
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if jobs %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Job Name</th>
+                                    <th>Status</th>
+                                    <th>Last Build</th>
+                                    <th>Success Rate</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for job in jobs %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ job.name }}</strong>
+                                        {% if job.description %}
+                                            <br><small class="text-muted">{{ job.description|truncatechars:50 }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if job.status == 'active' %}success{% elif job.status == 'disabled' %}warning{% else %}secondary{% endif %}">
+                                            {{ job.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if job.latest_build %}
+                                            <span class="badge bg-{% if job.latest_build.status == 'success' %}success{% elif job.latest_build.status == 'failed' %}danger{% elif job.latest_build.status == 'running' %}warning{% else %}secondary{% endif %}">
+                                                #{{ job.latest_build.build_number }}
+                                            </span>
+                                            <br><small class="text-muted">{{ job.latest_build.started_at|timesince }} ago</small>
+                                        {% else %}
+                                            <span class="text-muted">No builds</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-success" role="progressbar" 
+                                                 style="width: {{ job.success_rate }}%">
+                                                {{ job.success_rate|floatformat:0 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'dashboard:job_detail' job.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No build jobs found. Create some jobs in the admin panel to get started.</p>
+                        <a href="/admin/" class="btn btn-primary">Go to Admin</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-clock me-2"></i>Recent Activity
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_builds %}
+                    {% for build in recent_builds %}
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3">
+                            <i class="fas fa-{% if build.status == 'success' %}check-circle text-success{% elif build.status == 'failed' %}times-circle text-danger{% elif build.status == 'running' %}spinner fa-spin text-warning{% else %}clock text-muted{% endif %}"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">{{ build.job.name }} #{{ build.build_number }}</div>
+                            <small class="text-muted">{{ build.started_at|timesince }} ago</small>
+                            {% if build.author %}
+                                <br><small class="text-muted">by {{ build.author }}</small>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <a href="{% url 'dashboard:build_detail' build.id %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-external-link-alt"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% if not forloop.last %}<hr>{% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-history fa-2x text-muted mb-2"></i>
+                        <p class="text-muted">No recent activity</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Environment Status -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-server me-2"></i>Environment Status
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if environments %}
+                    {% for env in environments %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <strong>{{ env.name }}</strong>
+                            <br><small class="text-muted">{{ env.get_env_type_display }}</small>
+                        </div>
+                        <div>
+                            {% with env.deployments.first as latest %}
+                                {% if latest %}
+                                    <span class="badge bg-{% if latest.status == 'success' %}success{% elif latest.status == 'failed' %}danger{% elif latest.status == 'deploying' %}warning{% else %}secondary{% endif %}">
+                                        {{ latest.get_status_display }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">No deployments</span>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    {% if not forloop.last %}<hr>{% endif %}
+                    {% endfor %}
+                    <div class="text-center mt-3">
+                        <a href="{% url 'dashboard:environments' %}" class="btn btn-sm btn-outline-primary">
+                            View All Environments
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-server fa-2x text-muted mb-2"></i>
+                        <p class="text-muted">No environments configured</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-refresh the page every 30 seconds to show updated build status
+setInterval(function() {
+    // Only refresh if no modals are open
+    if (!document.querySelector('.modal.show')) {
+        location.reload();
+    }
+}, 30000);
+</script>
+{% endblock %}
+
