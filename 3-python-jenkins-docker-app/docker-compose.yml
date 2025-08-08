@@ -1,0 +1,7 @@
+version: '3'
+services:
+  pythonapp:
+    build: .
+    container_name: python-jenkins-docker
+    image: python-jenkins-docker:latest
+    command: ["python", "app.py"]
