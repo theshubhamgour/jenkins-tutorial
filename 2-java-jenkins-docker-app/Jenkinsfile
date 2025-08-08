@@ -11,11 +11,15 @@ pipeline {
                 sh 'mvn test'
             }
         }
-        stage('Docker Build & Run') {
+        stage('Docker Build') {
             steps {
                 sh 'docker build -t java-jenkins-docker:latest .'
-                sh 'docker run --rm java-jenkins-docker:latest'
             }
         }
+        stage('Docker Run') {
+            steps {
+                sh 'docker run --rm java-jenkins-docker:latest'
+            }
+        }        
     }
 }
