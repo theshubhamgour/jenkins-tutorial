@@ -22,6 +22,14 @@ pipeline {
             }
         }
 
+        stage('Compile') {
+            steps {
+                dir('3-java-jenkins-docker-app') {
+                    sh "mvn compile"
+                }
+            }
+        }
+
         stage('Docker Build') {
             steps {
                 dir('3-java-jenkins-docker-app') {
@@ -37,5 +45,15 @@ pipeline {
                 }
             }
         }
+
+        stage('Docker Push') {
+            steps {
+                dir('3-java-jenkins-docker-app') {
+                        sh "docker login -u {username} -p {password}"
+                        sh "docker tag java-app {username}/java-app:latest"
+                        sh "docker push {username}/java-app:latest"
+                    }
+                }
+            }
+        }
     }
-}
