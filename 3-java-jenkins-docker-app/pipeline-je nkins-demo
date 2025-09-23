@@ -1,0 +1,41 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Build') {
+            steps {
+                // Get some code from a GitHub repository
+                git branch: 'main', changelog: false, poll: false, url: 'https://github.com/theshubhamgour/jenkins-tutorial.git'
+
+                // Run Maven on a Unix agent
+                dir('3-java-jenkins-docker-app') {
+                    sh "mvn clean package"
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('3-java-jenkins-docker-app') {
+                    sh "mvn test"
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                dir('3-java-jenkins-docker-app') {
+                    sh "docker build -t java-app ."
+                }
+            }
+        }
+
+        stage('Docker Run') {
+            steps {
+                dir('3-java-jenkins-docker-app') {
+                    sh "docker run java-app"
+                }
+            }
+        }
+    }
+}
