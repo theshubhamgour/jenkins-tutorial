@@ -6,6 +6,8 @@ This repository contains a **minimal Java application** designed to demonstrate 
 
 ## 📖 Overview
 
+<img width="1459" height="281" alt="image" src="https://github.com/user-attachments/assets/369bb6bc-bdf9-4808-b1a1-bbca9ba0be5e" />
+
 This project is intended for beginners who want to learn:
 
 - How to create a simple Java application
