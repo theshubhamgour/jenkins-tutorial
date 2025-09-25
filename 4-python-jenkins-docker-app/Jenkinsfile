@@ -1,34 +1,45 @@
 pipeline {
     agent any
-    environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds') // Jenkins credential ID
-        DOCKER_IMAGE = "theshubhamgour/python-jenkins-docker"
-    }
     stages {
+        stage('Clone Github Repository') {
+            steps {
+                git branch: 'main', changelog: false, poll: false, url: 'https://github.com/theshubhamgour/jenkins-tutorial.git'
+                sh 'pwd'
+            }
+        }        
         stage('Build') {
             steps {
-                sh 'python -m py_compile app.py'
+                dir('4-python-jenkins-docker-app') {
+                    sh 'python3 -m py_compile app.py'
+                }
             }
         }
         stage('Test') {
             steps {
-                sh 'python -m unittest discover tests'
+                dir('4-python-jenkins-docker-app') {
+                    sh 'python3 -m unittest discover tests'
+                }
             }
         }
         stage('Docker Build') {
             steps {
-                sh 'docker build -t "$DOCKER_IMAGE:latest" .'
+                dir('4-python-jenkins-docker-app') {
+                    sh 'docker build -t python-app:latest .'
+                }
             }
         }
         stage('Docker Push') {
             steps {
-                sh 'echo "$DOCKERHUB_CREDENTIALS_PSW" | docker login -u "$DOCKERHUB_CREDENTIALS_USR" --password-stdin'
-                sh 'docker push "$DOCKER_IMAGE:latest"'
+                dir('4-python-jenkins-docker-app') {
+                    sh 'echo "Done"'
+                }
             }
         }
         stage('Docker Run') {
             steps {
-                sh 'docker run --rm "$DOCKER_IMAGE:latest"'
+                dir('4-python-jenkins-docker-app') {
+                    sh 'docker run --rm python-app:latest'
+                }
             }
         }        
     }
