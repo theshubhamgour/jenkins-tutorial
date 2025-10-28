@@ -1,0 +1,34 @@
+pipeline {
+    agent any
+    environment {
+        APP_NAME = 'theshubhamgour/python-webapp'
+        TAG_VERSION = 'v1.0.0'
+        IMAGE = 'theshubhamgour/python-app:v1'
+    }
+    stages {
+        stage('Docker Image Pull') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'DockerHub', passwordVariable: 'DockerPass', usernameVariable: 'DockerUser')]) {
+                    echo "Pulling Docker image using credentials"
+                    sh "docker login -u ${DockerUser} -p ${DockerPass}"
+                    sh "docker pull ${IMAGE}"
+                    echo "Docker Pull completed successfully"
+                }
+            }
+        }
+        stage('Docker Image Tag') {
+            steps {
+                    echo "Docker image tagging in progress"
+                    sh   "docker tag ${IMAGE} ${APP_NAME}:${TAG_VERSION}"
+                    echo "Docker tag completed successfully"
+                }
+            }
+        stage('Docker Push') {
+            steps {
+                    echo "Docker image Push in progress"
+                    sh   "docker push ${APP_NAME}:${TAG_VERSION}"
+                    echo "Docker Push successfully"
+                }
+            }            
+        }        
+    }
