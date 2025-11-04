@@ -12,6 +12,8 @@ as part of the **Jenkins Tutorial Playlist**.
 - Showcase real-world DevOps CI/CD setup
 - Demonstrate Docker image creation, tagging, and deployment
 
+Project link : https://github.com/theshubhamgour/flask-portfolio
+
 ---
 
 ## 🧩 Pipeline Overview
