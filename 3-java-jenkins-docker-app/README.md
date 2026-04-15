@@ -144,6 +144,84 @@ pipeline {
 }
 
 ```
+## 🌟 Advanced End-to-End CI/CD Pipeline
+
+For a complete, production-ready deployment workflow, you can use the following advanced pipeline. This includes automated Git checkout, directory management, Docker registry tagging, secure credential management for pushing to Docker Hub, and automated workspace cleanup.
+
+```groovy
+pipeline {
+    agent any
+    
+    // Define variables to make the pipeline reusable and easier to read
+    environment {
+        IMAGE_NAME = 'java-jenkins-docker'
+        DOCKER_HUB_USER = 'your_dockerhub_username' // Replace with your actual Docker Hub username
+        DOCKER_CREDS_ID = 'docker-hub-credentials'  // The ID of the credentials stored in Jenkins
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/theshubhamgour/jenkins-tutorial.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                dir('3-java-jenkins-docker-app') {
+                    sh 'mvn clean package'
+                }
+            }
+        }
+        stage('Test') {
+            steps {
+                dir('3-java-jenkins-docker-app') {
+                    sh 'mvn test'
+                }
+            }
+        }
+        stage('Docker Build') {
+            steps {
+                dir('3-java-jenkins-docker-app') {
+                    // Build the initial local image
+                    sh "docker build -t ${IMAGE_NAME}:latest ."
+                }
+            }
+        }
+        stage('Docker Tag') {
+            steps {
+                // Tag the image with your Docker registry username so it can be pushed
+                sh "docker tag ${IMAGE_NAME}:latest ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest"
+            }
+        }
+        stage('Docker Login & Push') {
+            steps {
+                // Securely fetch credentials from Jenkins to login
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDS_ID}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
+                    // Use --password-stdin to prevent the password from showing up in Jenkins logs
+                    sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+                    
+                    // Push the tagged image to the registry
+                    sh "docker push ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest"
+                }
+            }
+        }        
+    }
+    
+    // The post block runs after all stages are complete
+    post {
+        always {
+            // Cleans the Jenkins workspace directory 
+            cleanWs()
+            
+            // Optional: Remove the local Docker images to free up space on the Jenkins server
+            sh "docker rmi ${IMAGE_NAME}:latest || true"
+            sh "docker rmi ${DOCKER_HUB_USER}/${IMAGE_NAME}:latest || true"
+        }
+    }
+}
+```
+
+![Jenkins Pipeline Success](https://i.ibb.co/Hfh3FJHF/Screenshot-2026-04-15-192141.png)
 
 **Pipeline Stages:**
 1. **Build** – Compiles and packages the Java code
