@@ -1,0 +1,287 @@
+/*
+============================================================
+
+Jenkins CI/CD Pipeline Template
+
+Features:
+- GitHub Checkout
+- Dependency Installation
+- Automated Testing
+- Docker Build
+- Docker Hub Push
+- Remote Deployment via SSH
+- Health Check
+- Slack Notifications
+
+Required Jenkins Credentials:
+
+1. dockerhub-username      (Secret Text)
+2. dockerhub-creds         (Username with Password)
+3. server-ip               (Secret Text)
+4. server-ssh-key          (SSH Username with Private Key)
+5. slack-webhook-url       (Secret Text)
+
+Before Using:
+
+- Update IMAGE_NAME
+- Update CONTAINER_NAME
+- Update Application Port
+- Update Health Endpoint
+- Configure Credentials
+
+============================================================
+*/
+
+pipeline {
+
+    agent none
+
+    environment {
+
+        // Docker image name (without username)
+        IMAGE_NAME = 'your-image-name'
+
+        // Container name on target server
+        CONTAINER_NAME = 'your-container-name'
+
+        // Docker Hub username credential
+        DOCKER_USERNAME = credentials('dockerhub-username')
+
+        // Server IP credential
+        SERVER_IP = credentials('server-ip')
+
+        // Docker Hub username/password credential
+        DOCKER_CREDS = credentials('dockerhub-creds')
+    }
+
+    stages {
+
+        stage('Checkout') {
+
+            agent any
+
+            steps {
+                echo 'Checking out latest source code...'
+                checkout scm
+            }
+        }
+
+        stage('Install Dependencies & Test') {
+
+            agent {
+                docker {
+                    image 'node:18-alpine'
+                    args '-u root'
+                }
+            }
+
+            steps {
+
+                echo 'Installing dependencies...'
+                sh 'npm install'
+
+                echo 'Running tests...'
+                sh 'npm test'
+            }
+        }
+
+        stage('Build Docker Image') {
+
+            agent any
+
+            steps {
+
+                echo 'Building Docker image...'
+
+                sh '''
+                    docker build \
+                    -t $DOCKER_USERNAME/$IMAGE_NAME:latest .
+                '''
+            }
+        }
+
+        stage('Push Docker Image') {
+
+            agent any
+
+            steps {
+
+                echo 'Logging into Docker Hub...'
+
+                sh '''
+                    echo $DOCKER_CREDS_PSW | \
+                    docker login \
+                    -u $DOCKER_CREDS_USR \
+                    --password-stdin
+                '''
+
+                echo 'Pushing image...'
+
+                sh '''
+                    docker push \
+                    $DOCKER_USERNAME/$IMAGE_NAME:latest
+                '''
+            }
+        }
+
+        stage('Deploy Application') {
+
+            agent any
+
+            steps {
+
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'server-ssh-key',
+                        keyFileVariable: 'SSH_KEY'
+                    )
+                ]) {
+
+                    sh '''
+                    ssh -i $SSH_KEY \
+                    -o StrictHostKeyChecking=no \
+                    ubuntu@$SERVER_IP "
+
+                    docker pull $DOCKER_USERNAME/$IMAGE_NAME:latest
+
+                    docker stop $CONTAINER_NAME || true
+
+                    docker rm $CONTAINER_NAME || true
+
+                    docker run -d \
+                    --name $CONTAINER_NAME \
+                    --restart unless-stopped \
+                    -p 3000:3000 \
+                    $DOCKER_USERNAME/$IMAGE_NAME:latest
+                    "
+                    '''
+                }
+            }
+        }
+
+        stage('Health Check') {
+
+            agent any
+
+            steps {
+
+                script {
+
+                    echo 'Waiting for application startup...'
+
+                    sh 'sleep 10'
+
+                    withCredentials([
+                        sshUserPrivateKey(
+                            credentialsId: 'server-ssh-key',
+                            keyFileVariable: 'SSH_KEY'
+                        )
+                    ]) {
+
+                        def health = sh(
+                            script: '''
+                                ssh -i $SSH_KEY \
+                                -o StrictHostKeyChecking=no \
+                                ubuntu@$SERVER_IP \
+                                "curl -s http://localhost:3000/health"
+                            ''',
+                            returnStdout: true
+                        ).trim()
+
+                        env.HEALTH_RESPONSE = health
+
+                        echo "Health Response: ${health}"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+
+        success {
+
+            node {
+
+                withCredentials([
+                    string(
+                        credentialsId: 'slack-webhook-url',
+                        variable: 'SLACK_URL'
+                    )
+                ]) {
+
+                    script {
+
+                        def duration =
+                            currentBuild.durationString
+                                .replace(' and counting', '')
+
+                        def health =
+                            env.HEALTH_RESPONSE ?: 'N/A'
+
+                        def payload = """
+                        {
+                            "text":"✅ Deployment Successful
+
+Job: ${env.JOB_NAME}
+Build: #${env.BUILD_NUMBER}
+Duration: ${duration}
+Health Check: ${health}"
+                        }
+                        """
+
+                        sh """
+                        curl -X POST \$SLACK_URL \
+                        -H 'Content-Type: application/json' \
+                        --data '${payload}'
+                        """
+                    }
+                }
+            }
+        }
+
+        failure {
+
+            node {
+
+                withCredentials([
+                    string(
+                        credentialsId: 'slack-webhook-url',
+                        variable: 'SLACK_URL'
+                    )
+                ]) {
+
+                    script {
+
+                        def payload = """
+                        {
+                            "text":"❌ Deployment Failed
+
+Job: ${env.JOB_NAME}
+Build: #${env.BUILD_NUMBER}
+
+Check Jenkins console logs."
+                        }
+                        """
+
+                        sh """
+                        curl -X POST \$SLACK_URL \
+                        -H 'Content-Type: application/json' \
+                        --data '${payload}'
+                        """
+                    }
+                }
+            }
+        }
+
+        always {
+
+            echo """
+            Pipeline Completed
+
+            Job: ${env.JOB_NAME}
+            Build: #${env.BUILD_NUMBER}
+            """
+        }
+    }
+}
